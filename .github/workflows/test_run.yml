@@ -17,22 +17,23 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: "3.10"
-      - run: |
-          echo "Fetching artifact ID"
+      - name: Fetch artifact ID
+        id: get-artifact-id
+        run: |
           ARTIFACT_ID=$(curl -L -H "Accept: application/vnd.github+json" \
-          -H "Authorization: Bearer ${{ secrets.TOKEN }}" \
-          -H "X-GitHub-Api-Version: 2022-11-28" \
-          https://api.github.com/repos/Dan1lV1t/allure_integration/actions/artifacts?name=allure-results \
-          | python3 -c "import sys, json; print(json.load(sys.stdin)['artifacts'][0]['id'])") \
-          && echo "Artifact ID: $ARTIFACT_ID"
-      - run: |
-          echo "Downloading artifact"
+            -H "Authorization: Bearer ${{ secrets.TOKEN }}" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            https://api.github.com/repos/Dan1lV1t/allure_integration/actions/artifacts?name=allure-results \
+            | python3 -c "import sys, json; print(json.load(sys.stdin)['artifacts'][0]['id'])")
+          echo "ARTIFACT_ID=${ARTIFACT_ID}" >> $GITHUB_ENV
+      - name: Download artifact
+        run: |
           curl -L \
-          -H "Accept: application/vnd.github+json" \
-          -H "Authorization: Bearer ${{ secrets.TOKEN }}" \
-          -H "X-GitHub-Api-Version: 2022-11-28" \
-          "https://api.github.com/repos/Dan1lV1t/allure_integration/actions/artifacts/$ARTIFACT_ID/zip" \
-          -o artifacts.zip
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${{ secrets.TOKEN }}" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/Dan1lV1t/allure_integration/actions/artifacts/${{ env.ARTIFACT_ID }}/zip" \
+            -o artifacts.zip
       - run: mkdir allure-result && unzip artifacts.zip -d allure-result
       - name: Store allure history
         uses: actions/upload-artifact@v3
@@ -43,6 +44,7 @@ jobs:
 
   test:
     runs-on: ubuntu-latest
+    needs: download-history
 
     steps:
       - name: Checkout repository
@@ -59,7 +61,7 @@ jobs:
           name: allure-result
           path: allure-result
       - name: Run test
-        run: pytest --alluredir=allure-result || echo "Tests failed"
+        run: pytest --alluredir=allure-result
       - name: Store allure results
         uses: actions/upload-artifact@v3
         with:
@@ -107,8 +109,6 @@ jobs:
       - name: Deploy to Github Pages
         id: deployment
         uses: actions/deploy-pages@v1.2.9
-
-
 
 
 
